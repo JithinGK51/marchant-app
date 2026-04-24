@@ -1,0 +1,20 @@
+# Backend
+backendserver/.env
+backendserver/__pycache__/
+backendserver/*.pyc
+backendserver/scratch/
+
+# Flutter App
+mearchentapp/.dart_tool/
+mearchentapp/.flutter-plugins
+mearchentapp/.flutter-plugins-dependencies
+mearchentapp/.packages
+mearchentapp/build/
+mearchentapp/ios/Flutter/Generated.xcconfig
+mearchentapp/ios/Flutter/flutter_export_environment.sh
+mearchentapp/android/app/google-services.json
+
+# General
+.DS_Store
+*.log
+.vscode/
