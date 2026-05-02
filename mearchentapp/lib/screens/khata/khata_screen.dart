@@ -102,9 +102,30 @@ class _KhataScreenState extends State<KhataScreen> {
           backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
           child: Text(customer['name'][0].toUpperCase(), style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
         ),
-        title: Text(customer['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(customer['phone']),
-        trailing: const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+        title: Text(customer['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        subtitle: Text(customer['phone'], style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text('Balance', style: TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+                Text(
+                  '₹${(customer['balance'] ?? 0).toStringAsFixed(0)}', 
+                  style: TextStyle(
+                    color: (customer['balance'] ?? 0) > 0 ? Colors.red.shade700 : Colors.green.shade700, 
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18
+                  )
+                ),
+              ],
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+          ],
+        ),
       ),
     );
   }

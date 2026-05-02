@@ -14,7 +14,6 @@ async def create_order(order: OrderCreate, user_id: str = Depends(get_user_id)):
     items_json = [item.model_dump() for item in order.items]
     
     try:
-        # Call the atomic RPC function
         response = supabase.rpc("create_order_atomic", {
             "p_user_id": user_id,
             "p_subtotal": order.subtotal,
@@ -23,7 +22,8 @@ async def create_order(order: OrderCreate, user_id: str = Depends(get_user_id)):
             "p_profit": order.profit,
             "p_items": items_json,
             "p_payment_status": order.payment_status,
-            "p_customer_id": order.customer_id
+            "p_customer_id": order.customer_id,
+            "p_paid_amount": order.paid_amount
         }).execute()
         
         # Check for error in response structure
