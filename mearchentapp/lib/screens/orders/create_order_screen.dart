@@ -3,7 +3,6 @@ import '../../core/theme.dart';
 import '../../services/api_service.dart';
 import '../../models/product_model.dart';
 import 'invoice_screen.dart';
-import '../notifications/notification_screen.dart';
 
 class CreateOrderScreen extends StatefulWidget {
   const CreateOrderScreen({super.key});
@@ -134,12 +133,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> with TickerProvid
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Order 🛒'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationScreen())),
-          ),
-        ],
         bottom: _isLoading ? null : PreferredSize(
           preferredSize: const Size.fromHeight(110),
           child: Column(
@@ -254,31 +247,33 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> with TickerProvid
                               }
                             }),
                           ),
-                          GestureDetector(
-                            onTap: () => _showQuantityDialog(product),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                cartQty % 1 == 0 ? cartQty.toInt().toString() : cartQty.toStringAsFixed(2),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                            ),
+                          Text(
+                            cartQty % 1 == 0 ? cartQty.toInt().toString() : cartQty.toStringAsFixed(2),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline, color: AppTheme.primaryColor),
                             onPressed: () {
-                              _addToCart(product);
+                              bool isPiece = product.unit.toLowerCase().contains('pc') || product.unit.toLowerCase().contains('piece');
+                              if (isPiece) {
+                                _addToCart(product);
+                              } else {
+                                _showQuantityDialog(product);
+                              }
                             },
                           ),
                         ],
                       )
                     else
                       ElevatedButton(
-                        onPressed: () => _showQuantityDialog(product),
+                        onPressed: () {
+                          bool isPiece = product.unit.toLowerCase().contains('pc') || product.unit.toLowerCase().contains('piece');
+                          if (isPiece) {
+                            _addToCart(product);
+                          } else {
+                            _showQuantityDialog(product);
+                          }
+                        },
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 36),
                           padding: EdgeInsets.zero,
@@ -310,39 +305,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> with TickerProvid
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Text('${_cart.length} Items in Cart', style: const TextStyle(color: Colors.black54)),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Cancel Order?'),
-                          content: const Text('Are you sure you want to clear all items from the cart?'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('No')),
-                            TextButton(
-                              onPressed: () {
-                                setState(() => _cart.clear());
-                                Navigator.pop(context);
-                              },
-                              child: const Text('Yes, Cancel', style: TextStyle(color: Colors.red)),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    child: const Text('Cancel', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12)),
-                  ),
-                ],
-              ),
+              Text('${_cart.length} Items in Cart', style: const TextStyle(color: Colors.black54)),
               Text('₹${_cartTotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
             ],
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: () {
               final List<Map<String, dynamic>> items = [];
               _cart.forEach((id, qty) {
                 final p = _allProducts.firstWhere((element) => element.id == id);
@@ -356,12 +324,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> with TickerProvid
                   'total_price': p.sellingPrice * qty,
                 });
               });
-              final result = await Navigator.of(context).push(MaterialPageRoute(
+              Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => InvoiceScreen(cartItems: items, total: _cartTotal),
               ));
-              if (result == true) {
-                setState(() => _cart.clear());
-              }
             },
             style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
             child: const Text('Proceed to Bill'),

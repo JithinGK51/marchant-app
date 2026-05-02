@@ -35,11 +35,9 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
     return profit;
   }
 
-  Future<void> _confirmOrder({String paymentStatus = 'paid', String? customerId, double paidAmount = 0.0}) async {
+  Future<void> _confirmOrder({String paymentStatus = 'paid', String? customerId}) async {
     setState(() => _isProcessing = true);
     try {
-      final totalPaid = paymentStatus == 'paid' && paidAmount == 0 ? _finalAmount : paidAmount;
-      
       await ApiService.createOrder({
         "subtotal": widget.total,
         "discount": _discount,
@@ -48,7 +46,6 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
         "items": widget.cartItems,
         "payment_status": paymentStatus,
         "customer_id": customerId,
-        "paid_amount": totalPaid,
       });
       if (mounted) {
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OrderSuccessScreen()));
@@ -65,7 +62,6 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
   void _showCreditDialog() {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
-    final paidController = TextEditingController(text: '0');
     List<dynamic> existingCustomers = [];
     String? selectedCustomerId;
 
@@ -105,12 +101,6 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
                       ],
                       TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Customer Name')),
                       TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Phone Number'), keyboardType: TextInputType.phone),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: paidController, 
-                        decoration: const InputDecoration(labelText: 'Paid Upfront (Optional)', prefixText: '₹'),
-                        keyboardType: TextInputType.number,
-                      ),
                     ],
                   ),
                 );
@@ -135,22 +125,17 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
                   
                   setState(() => _isProcessing = true);
                   try {
-                      String finalId;
-                      if (selectedCustomerId != null) {
-                        finalId = selectedCustomerId!;
-                      } else {
-                        final customer = await ApiService.createOrGetCustomer({
-                          "name": nameController.text,
-                          "phone": phoneController.text,
-                        });
-                        finalId = customer['id'];
-                      }
-                      final upfrontPaid = double.tryParse(paidController.text) ?? 0.0;
-                      await _confirmOrder(
-                        paymentStatus: upfrontPaid >= _finalAmount ? 'paid' : 'credit', 
-                        customerId: finalId,
-                        paidAmount: upfrontPaid,
-                      );
+                    String finalId;
+                    if (selectedCustomerId != null) {
+                      finalId = selectedCustomerId!;
+                    } else {
+                      final customer = await ApiService.createOrGetCustomer({
+                        "name": nameController.text,
+                        "phone": phoneController.text,
+                      });
+                      finalId = customer['id'];
+                    }
+                    await _confirmOrder(paymentStatus: 'credit', customerId: finalId);
                   } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));

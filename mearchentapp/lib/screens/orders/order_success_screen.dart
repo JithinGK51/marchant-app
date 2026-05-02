@@ -33,7 +33,7 @@ class OrderSuccessScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
+                  onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
                   child: const Text('Back to Home'),
                 ),
               ),

@@ -31,7 +31,6 @@ class OrderCreate(BaseModel):
     discount: float
     final_amount: float
     profit: float
-    paid_amount: float = 0.0
     items: List[OrderItemCreate]
     customer_id: Optional[str] = None
     payment_status: str = "paid"

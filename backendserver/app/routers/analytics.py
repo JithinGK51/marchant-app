@@ -11,7 +11,7 @@ async def get_analytics_summary(period: str = "all", user_id: str = Depends(get_
     now_utc = datetime.utcnow()
     
     # 1. Base Query for the selected period
-    query = supabase.table("orders").select("final_amount, profit, payment_status, paid_amount, created_at, customer_id, order_items(quantity, total_price, products(name, categories(name)))").eq("user_id", user_id)
+    query = supabase.table("orders").select("final_amount, profit, payment_status, paid_amount, created_at, order_items(quantity, total_price, products(name, categories(name)))").eq("user_id", user_id)
     
     if period == "today":
         start_date = now_utc.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
@@ -22,8 +22,6 @@ async def get_analytics_summary(period: str = "all", user_id: str = Depends(get_
     elif period == "month":
         start_date = (now_utc - timedelta(days=30)).isoformat()
         query = query.gte("created_at", start_date)
-    else:
-        start_date = None
 
     response = query.execute()
     orders = response.data
@@ -60,31 +58,10 @@ async def get_analytics_summary(period: str = "all", user_id: str = Depends(get_
         reverse=True
     )[:5]
 
-    # 4. Khata Analysis (Robust & Accurate)
-    # Collected in this period (from the payments table)
-    payment_query = supabase.table("payments").select("amount, customer_id").eq("user_id", user_id)
-    if period != "all" and start_date:
-        payment_query = payment_query.gte("payment_date", start_date)
-    
-    payments_period_resp = payment_query.execute()
-    total_collected_period = round(sum(p["amount"] for p in payments_period_resp.data if p.get("customer_id")), 2)
-    
-    # All-time Khata Summary
-    # 1. Total Credit ever given
-    all_orders_resp = supabase.table("orders").select("final_amount, customer_id").eq("user_id", user_id).execute()
-    total_khata = round(sum(o["final_amount"] for o in all_orders_resp.data if o.get("customer_id")), 2)
-    
-    # 2. Total Payments ever received from Khata customers
-    all_payments_resp = supabase.table("payments").select("amount, customer_id").eq("user_id", user_id).execute()
-    total_payed_all_time = round(sum(p["amount"] for p in all_payments_resp.data if p.get("customer_id")), 2)
-    
-    # 3. True Remaining Balance
-    total_outstanding = round(max(0, total_khata - total_payed_all_time), 2)
-    
-    # Recovery Rate: Based on total collection vs total debt
-    health_pct = 100.0
-    if total_khata > 0:
-        health_pct = round((min(total_payed_all_time, total_khata) / total_khata) * 100, 1)
+    # 4. Khata Analysis
+    khata_orders = [o for o in orders if o.get("payment_status") == "credit"]
+    total_outstanding = round(sum(o["final_amount"] - o["paid_amount"] for o in khata_orders), 2)
+    total_collected = round(sum(o["paid_amount"] for o in khata_orders), 2)
 
     # 5. Trend Analysis (Period-Specific)
     trend = []
@@ -109,25 +86,6 @@ async def get_analytics_summary(period: str = "all", user_id: str = Depends(get_
             val = sum(o["final_amount"] for o in orders if d_start.isoformat() <= o["created_at"] < d_end.isoformat())
             trend.append({"label": d_start.strftime("%d/%m") if period == "month" else d_start.strftime("%a"), "sales": round(val, 2)})
 
-    # 4.5 Additional Khata Insights
-    # Customers with active debt
-    customers_summary = supabase.table("orders").select("customer_id, final_amount, paid_amount").eq("user_id", user_id).not_.is_("customer_id", "null").execute()
-    customer_balances = {}
-    for o in customers_summary.data:
-        cid = o["customer_id"]
-        customer_balances[cid] = customer_balances.get(cid, 0) + (o["final_amount"] - o["paid_amount"])
-    
-    # Filter for those with actual debt > 1
-    active_debtors = [cid for cid, bal in customer_balances.items() if bal > 1]
-    
-    # Get top debtor name
-    top_debtor_name = "None"
-    if active_debtors:
-        top_debtor_id = max(customer_balances, key=customer_balances.get)
-        top_debtor_resp = supabase.table("customers").select("name").eq("id", top_debtor_id).single().execute()
-        if top_debtor_resp.data:
-            top_debtor_name = top_debtor_resp.data["name"]
-
     return {
         "sales": total_sales,
         "profit": total_profit,
@@ -136,13 +94,8 @@ async def get_analytics_summary(period: str = "all", user_id: str = Depends(get_
         "category_distribution": category_distribution,
         "top_products": top_products,
         "khata_stats": {
-            "total_khata": total_khata,
             "outstanding": total_outstanding,
-            "collected": total_collected_period,
-            "payed_katha": total_payed_all_time,
-            "health_score": health_pct,
-            "active_debtors": len(active_debtors),
-            "top_debtor": top_debtor_name
+            "collected": total_collected
         },
         "period": period
     }

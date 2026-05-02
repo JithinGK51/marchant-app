@@ -130,8 +130,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       const SizedBox(height: 30),
                       Text('Quick Insights 💡', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF1E293B))),
                       const SizedBox(height: 16),
-                      _buildInsightItem('Active Debtors', '${khata['active_debtors'] ?? 0} customers', Icons.people_outline_rounded, Colors.orange),
-                      _buildInsightItem('Top Debtor', khata['top_debtor'] ?? 'None', Icons.person_search_rounded, Colors.redAccent),
                       _buildInsightItem('Avg. Order Value', '₹${totalOrders > 0 ? (totalSales / totalOrders).toStringAsFixed(2) : 0.00}', Icons.analytics_rounded, Colors.amber),
                       _buildInsightItem('Conversion Status', 'Good', Icons.check_circle_rounded, Colors.green),
                     ],
@@ -209,51 +207,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.blue.shade900, Colors.blue.shade700]),
+        gradient: LinearGradient(colors: [Colors.blue.shade800, Colors.blue.shade600]),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
       ),
       child: Column(
         children: [
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.book_rounded, color: Colors.white70, size: 16),
-              SizedBox(width: 8),
-              Text('Khata Overview', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text('${(stats['health_score'] ?? 0).toString()}% Recovery Rate', 
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+          const Text('Khata Health 📔', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: ((stats['health_score'] ?? 0) as num).toDouble() / 100,
-              backgroundColor: Colors.white24,
-              color: Colors.lightGreenAccent,
-              minHeight: 10,
-            ),
-          ),
-          const SizedBox(height: 24),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildKhataStatItem('Remaining Khata\nBalance', '₹${(stats['outstanding'] as num).toStringAsFixed(0)}', Colors.orangeAccent),
-              Container(width: 1, height: 45, color: Colors.white24),
-              _buildKhataStatItem('Total Khata\nPaid', '₹${((stats['payed_katha'] ?? 0) as num).toStringAsFixed(0)}', Colors.lightGreenAccent),
+              _buildKhataStatItem('Outstanding', '₹${(stats['outstanding'] as num).toStringAsFixed(0)}', Colors.orangeAccent),
+              Container(width: 1, height: 40, color: Colors.white24),
+              _buildKhataStatItem('Collected', '₹${(stats['collected'] as num).toStringAsFixed(0)}', Colors.lightGreenAccent),
             ],
           ),
-          const SizedBox(height: 12),
-          Text('Total Credit Granted: ₹${((stats['total_khata'] ?? 0) as num).toStringAsFixed(0)}', 
-            style: const TextStyle(color: Colors.white54, fontSize: 10, letterSpacing: 0.5)),
         ],
       ),
     );
