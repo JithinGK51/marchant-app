@@ -160,6 +160,12 @@ class ApiService {
     throw Exception('Failed to load customer summary');
   }
 
+  static Future<List<dynamic>> getCustomerTransactions(String customerId) async {
+    final response = await http.get(Uri.parse('${AppConstants.baseUrl}/customers/$customerId/transactions'), headers: _headers);
+    if (response.statusCode == 200) return json.decode(response.body);
+    throw Exception('Failed to load customer transactions');
+  }
+
   static Future<void> recordPayment(String customerId, double amount) async {
     final response = await http.post(
       Uri.parse('${AppConstants.baseUrl}/customers/$customerId/payments'),

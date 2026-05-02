@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'analytics/analytics_screen.dart';
-import 'home/home_screen.dart';
 import 'inventory/inventory_screen.dart';
 import 'orders/orders_screen.dart';
+import 'orders/create_order_screen.dart';
 import 'profile/profile_screen.dart';
 
 class MainNavigation extends StatefulWidget {
@@ -16,7 +16,7 @@ class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    const HomeScreen(),
+    const CreateOrderScreen(),
     const InventoryScreen(),
     const OrdersScreen(),
     const AnalyticsScreen(),

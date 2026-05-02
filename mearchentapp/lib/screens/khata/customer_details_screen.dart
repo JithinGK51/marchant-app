@@ -12,7 +12,7 @@ class CustomerDetailsScreen extends StatefulWidget {
 }
 
 class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
-  List<dynamic> _orders = [];
+  List<dynamic> _transactions = [];
   Map<String, dynamic>? _summary;
   bool _isLoading = true;
 
@@ -25,10 +25,10 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final orders = await ApiService.getCustomerOrders(widget.customer['id']);
+      final transactions = await ApiService.getCustomerTransactions(widget.customer['id']);
       final summary = await ApiService.getCustomerSummary(widget.customer['id']);
       setState(() {
-        _orders = orders;
+        _transactions = transactions;
         _summary = summary;
         _isLoading = false;
       });
@@ -119,14 +119,14 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
           Expanded(
             child: _isLoading 
               ? const Center(child: CircularProgressIndicator())
-              : _orders.isEmpty
-                ? const Center(child: Text('No orders found for this customer'))
+              : _transactions.isEmpty
+                ? const Center(child: Text('No history found for this customer'))
                 : ListView.builder(
-                    itemCount: _orders.length,
+                    itemCount: _transactions.length,
                     padding: const EdgeInsets.all(16),
                     itemBuilder: (context, index) {
-                      final order = _orders[index];
-                      return _buildOrderCard(context, order);
+                      final item = _transactions[index];
+                      return _buildTransactionTile(context, item);
                     },
                   ),
           ),
@@ -135,9 +135,9 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
     );
   }
 
-  Widget _buildOrderCard(BuildContext context, Map<String, dynamic> order) {
-    final DateTime date = DateTime.parse(order['created_at']).toLocal();
-    final bool isCredit = order['payment_status'] == 'credit';
+  Widget _buildTransactionTile(BuildContext context, Map<String, dynamic> item) {
+    final DateTime date = DateTime.parse(item['created_at']).toLocal();
+    final bool isOrder = item['type'] == 'order';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -147,18 +147,47 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: ListTile(
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => OrderDetailsScreen(order: order)
-        )),
-        title: Text('Order #${order['id'].toString().substring(0, 8)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('${date.day}/${date.month}/${date.year}'),
+        onTap: isOrder ? () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => OrderDetailsScreen(order: item)
+        )) : null,
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: (isOrder ? Colors.orange : Colors.green).withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            isOrder ? Icons.shopping_bag_outlined : Icons.payment_rounded,
+            color: isOrder ? Colors.orange : Colors.green,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          isOrder ? 'Order #${item['id'].toString().substring(0, 8)}' : 'Payment Received',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text('${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}'),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text('₹${order['final_amount']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text(isCredit ? 'PENDING' : 'PAID', 
-              style: TextStyle(color: isCredit ? Colors.orange : Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
+            Text(
+              '${isOrder ? "-" : "+"} ₹${item[isOrder ? 'final_amount' : 'amount']}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isOrder ? Colors.red.shade700 : Colors.green.shade700,
+                fontSize: 16,
+              ),
+            ),
+            if (isOrder)
+              Text(
+                item['payment_status'] == 'credit' ? 'PENDING' : 'PAID',
+                style: TextStyle(
+                  color: item['payment_status'] == 'credit' ? Colors.orange : Colors.green,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
           ],
         ),
       ),
