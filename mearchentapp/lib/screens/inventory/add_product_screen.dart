@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/barcode_scanner_widget.dart';
 import '../../services/api_service.dart';
 
 import '../../models/product_model.dart';
@@ -16,6 +17,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _qtyController = TextEditingController();
   final _costController = TextEditingController();
   final _sellingController = TextEditingController();
+  final _barcodeController = TextEditingController();
   String _selectedUnit = 'KG';
   String? _selectedCategoryId;
   List<dynamic> _categories = [];
@@ -31,8 +33,23 @@ class _AddProductScreenState extends State<AddProductScreen> {
       _sellingController.text = widget.product!.sellingPrice.toString();
       _selectedUnit = widget.product!.unit;
       _selectedCategoryId = widget.product!.categoryId;
+      _barcodeController.text = widget.product!.barcode ?? '';
     }
     _loadCategories();
+  }
+
+  Future<void> _scanBarcode() async {
+    var res = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const BarcodeScannerWidget(),
+        ));
+    if (res is String && res != "-1") {
+      if (!mounted) return;
+      setState(() {
+        _barcodeController.text = res;
+      });
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -57,6 +74,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         "cost_price": double.tryParse(_costController.text) ?? 0,
         "selling_price": double.tryParse(_sellingController.text) ?? 0,
         "low_stock_threshold": widget.product?.lowStockThreshold ?? 5.0,
+        "barcode": _barcodeController.text.isEmpty ? null : _barcodeController.text,
       };
 
       if (widget.product != null) {
@@ -90,6 +108,26 @@ class _AddProductScreenState extends State<AddProductScreen> {
             TextField(
               controller: _nameController,
               decoration: const InputDecoration(labelText: 'Product Name'),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _barcodeController,
+                    decoration: const InputDecoration(
+                      labelText: 'Barcode',
+                      hintText: 'Scan or enter barcode',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _scanBarcode,
+                  icon: const Icon(Icons.qr_code_scanner, color: Colors.blueAccent),
+                  tooltip: 'Scan Barcode',
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(

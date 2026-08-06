@@ -19,6 +19,7 @@ class ProductCreate(BaseModel):
     cost_price: float
     selling_price: float
     low_stock_threshold: float
+    barcode: Optional[str] = None
 
 class OrderItemCreate(BaseModel):
     product_id: str

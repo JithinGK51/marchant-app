@@ -3,6 +3,8 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../core/theme.dart';
 import '../../services/api_service.dart';
 
+import '../khata/khata_screen.dart';
+
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
 
@@ -10,138 +12,272 @@ class AnalyticsScreen extends StatefulWidget {
   State<AnalyticsScreen> createState() => _AnalyticsScreenState();
 }
 
-class _AnalyticsScreenState extends State<AnalyticsScreen> {
+class _AnalyticsScreenState extends State<AnalyticsScreen> with TickerProviderStateMixin {
   String _selectedPeriod = 'all';
+  late TabController _mainTabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _mainTabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _mainTabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Analytics 📊')),
-      body: Column(
+      appBar: AppBar(
+        title: const Text('Analysis 📊'),
+        bottom: TabBar(
+          controller: _mainTabController,
+          tabs: const [
+            Tab(text: 'Insights'),
+            Tab(text: 'Totals'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _mainTabController,
         children: [
-          _buildPeriodFilter(),
-          Expanded(
-            child: FutureBuilder<Map<String, dynamic>>(
-              future: ApiService.getAnalyticsSummary(period: _selectedPeriod),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                
-                final data = snapshot.data ?? {};
-                final totalSales = (data['sales'] as num?)?.toDouble() ?? 0.0;
-                final totalProfit = (data['profit'] as num?)?.toDouble() ?? 0.0;
-                final totalOrders = data['orders_count'] ?? 0;
-                final List<dynamic> trend = data['trend'] ?? [];
-                final List<dynamic> catDist = data['category_distribution'] ?? [];
-                final List<dynamic> topProducts = data['top_products'] ?? [];
-                final khata = data['khata_stats'] ?? {'outstanding': 0, 'collected': 0};
-
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSummaryGrid(totalSales, totalProfit, totalOrders),
-                      const SizedBox(height: 24),
-                      
-                      // Khata Summary Card
-                      _buildKhataSummaryCard(khata),
-                      const SizedBox(height: 24),
-
-                      _buildChartCard(
-                        context,
-                        _getChartTitle(_selectedPeriod),
-                        SizedBox(
-                          height: 200,
-                          child: trend.isEmpty 
-                            ? const Center(child: Text('No trend data available'))
-                            : LineChart(
-                            LineChartData(
-                              gridData: const FlGridData(show: false),
-                              borderData: FlBorderData(show: false),
-                              lineBarsData: [
-                                LineChartBarData(
-                                  spots: trend.asMap().entries.map((e) {
-                                    return FlSpot(e.key.toDouble(), (e.value['sales'] as num).toDouble());
-                                  }).toList(),
-                                  isCurved: true,
-                                  color: AppTheme.primaryColor,
-                                  barWidth: 4,
-                                  dotData: FlDotData(show: _selectedPeriod != 'month'),
-                                  belowBarData: BarAreaData(
-                                    show: true,
-                                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                  ),
-                                ),
-                              ],
-                              titlesData: FlTitlesData(
-                                bottomTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    reservedSize: 22,
-                                    interval: _selectedPeriod == 'month' ? 5 : 1,
-                                    getTitlesWidget: (value, meta) {
-                                      int idx = value.toInt();
-                                      if (idx >= 0 && idx < trend.length) {
-                                        return Text(trend[idx]['label'], style: const TextStyle(fontSize: 8, color: Colors.black54));
-                                      }
-                                      return const Text('');
-                                    },
-                                  ),
-                                ),
-                                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Top Products Section
-                      _buildTopProductsSection(topProducts),
-                      const SizedBox(height: 24),
-
-                      _buildChartCard(
-                        context,
-                        'Sales by Category',
-                        SizedBox(
-                          height: 200,
-                          child: catDist.isEmpty || (catDist.length == 1 && catDist[0]['name'] == 'No Data')
-                            ? const Center(child: Text('No category data'))
-                            : PieChart(
-                            PieChartData(
-                              sections: catDist.asMap().entries.map((e) {
-                                final List<Color> colors = [Colors.blue, Colors.orange, Colors.purple, Colors.green, Colors.red, Colors.amber];
-                                return PieChartSectionData(
-                                  value: (e.value['value'] as num).toDouble(),
-                                  color: colors[e.key % colors.length],
-                                  title: e.value['name'],
-                                  radius: 50,
-                                  titleStyle: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-                      Text('Quick Insights 💡', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF1E293B))),
-                      const SizedBox(height: 16),
-                      _buildInsightItem('Active Debtors', '${khata['active_debtors'] ?? 0} customers', Icons.people_outline_rounded, Colors.orange),
-                      _buildInsightItem('Top Debtor', khata['top_debtor'] ?? 'None', Icons.person_search_rounded, Colors.redAccent),
-                      _buildInsightItem('Avg. Order Value', '₹${totalOrders > 0 ? (totalSales / totalOrders).toStringAsFixed(2) : 0.00}', Icons.analytics_rounded, Colors.amber),
-                      _buildInsightItem('Conversion Status', 'Good', Icons.check_circle_rounded, Colors.green),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
+          _buildInsightsTab(),
+          _buildTotalsTab(),
         ],
       ),
+    );
+  }
+
+  Widget _buildTotalsTab() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: ApiService.getAnalyticsSummary(period: 'all'),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        final data = snapshot.data ?? {};
+        final khata = data['khata_stats'] ?? {'outstanding': 0, 'total_khata': 0};
+        
+        return FutureBuilder<List<dynamic>>(
+          future: ApiService.getProducts(),
+          builder: (context, prodSnapshot) {
+            final totalProducts = prodSnapshot.data?.length ?? 0;
+            
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  _buildTotalCard(
+                    'Total Products 📦', 
+                    '$totalProducts', 
+                    'Items in Inventory', 
+                    Colors.blue,
+                    onTap: () {
+                      // Navigate to inventory if needed, or just stay
+                    }
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTotalCard(
+                    'Total Khata (Credit) 💳', 
+                    '₹${(khata['outstanding'] as num).toStringAsFixed(0)}', 
+                    'Outstanding Balance', 
+                    Colors.orange,
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const KhataScreen()));
+                    }
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTotalCard(
+                    'Total Credit Granted 📈', 
+                    '₹${(khata['total_khata'] as num).toStringAsFixed(0)}', 
+                    'Lifetime Credit Volume', 
+                    Colors.purple,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTotalCard(
+                    'Total Customers 👥', 
+                    '${khata['active_debtors'] ?? 0}', 
+                    'With active balances', 
+                    Colors.green,
+                  ),
+                ],
+              ),
+            );
+          }
+        );
+      }
+    );
+  }
+
+  Widget _buildTotalCard(String title, String value, String sub, Color color, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: color.withValues(alpha: 0.1), width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 8),
+                Text(value, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(sub, style: const TextStyle(color: Colors.black45, fontSize: 12)),
+              ],
+            ),
+            if (onTap != null)
+              Icon(Icons.arrow_forward_ios_rounded, color: color.withValues(alpha: 0.3)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInsightsTab() {
+    return Column(
+      children: [
+        _buildPeriodFilter(),
+        Expanded(
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: ApiService.getAnalyticsSummary(period: _selectedPeriod),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              final data = snapshot.data ?? {};
+              final totalSales = (data['sales'] as num?)?.toDouble() ?? 0.0;
+              final totalProfit = (data['profit'] as num?)?.toDouble() ?? 0.0;
+              final totalOrders = data['orders_count'] ?? 0;
+              final List<dynamic> trend = data['trend'] ?? [];
+              final List<dynamic> catDist = data['category_distribution'] ?? [];
+              final List<dynamic> topProducts = data['top_products'] ?? [];
+              final khata = data['khata_stats'] ?? {'outstanding': 0, 'collected': 0};
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSummaryGrid(totalSales, totalProfit, totalOrders),
+                    const SizedBox(height: 24),
+                    
+                    // Khata Summary Card
+                    _buildKhataSummaryCard(khata),
+                    const SizedBox(height: 24),
+
+                    _buildChartCard(
+                      context,
+                      _getChartTitle(_selectedPeriod),
+                      SizedBox(
+                        height: 200,
+                        child: trend.isEmpty 
+                          ? const Center(child: Text('No trend data available'))
+                          : LineChart(
+                          LineChartData(
+                            gridData: const FlGridData(show: false),
+                            borderData: FlBorderData(show: false),
+                            lineBarsData: [
+                              LineChartBarData(
+                                spots: trend.asMap().entries.map((e) {
+                                  return FlSpot(e.key.toDouble(), (e.value['sales'] as num).toDouble());
+                                }).toList(),
+                                isCurved: true,
+                                color: AppTheme.primaryColor,
+                                barWidth: 4,
+                                dotData: FlDotData(show: _selectedPeriod != 'month'),
+                                belowBarData: BarAreaData(
+                                  show: true,
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                ),
+                              ),
+                            ],
+                            titlesData: FlTitlesData(
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  reservedSize: 22,
+                                  interval: _selectedPeriod == 'month' ? 5 : 1,
+                                  getTitlesWidget: (value, meta) {
+                                    int idx = value.toInt();
+                                    if (idx >= 0 && idx < trend.length) {
+                                      return Text(trend[idx]['label'], style: const TextStyle(fontSize: 8, color: Colors.black54));
+                                    }
+                                    return const Text('');
+                                  },
+                                ),
+                              ),
+                              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Top Products Section
+                    _buildTopProductsSection(topProducts),
+                    const SizedBox(height: 24),
+
+                    _buildChartCard(
+                      context,
+                      'Sales by Category',
+                      SizedBox(
+                        height: 200,
+                        child: catDist.isEmpty || (catDist.length == 1 && catDist[0]['name'] == 'No Data')
+                          ? const Center(child: Text('No category data'))
+                          : PieChart(
+                          PieChartData(
+                            sections: catDist.asMap().entries.map((e) {
+                              final List<Color> colors = [Colors.blue, Colors.orange, Colors.purple, Colors.green, Colors.red, Colors.amber];
+                              return PieChartSectionData(
+                                value: (e.value['value'] as num).toDouble(),
+                                color: colors[e.key % colors.length],
+                                title: e.value['name'],
+                                radius: 50,
+                                titleStyle: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                    Text('Quick Insights 💡', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFF1E293B))),
+                    const SizedBox(height: 16),
+                    _buildInsightItem('Active Debtors', '${khata['active_debtors'] ?? 0} customers', Icons.people_outline_rounded, Colors.orange),
+                    _buildInsightItem('Top Debtor', khata['top_debtor'] ?? 'None', Icons.person_search_rounded, Colors.redAccent),
+                    _buildInsightItem('Avg. Order Value', '₹${totalOrders > 0 ? (totalSales / totalOrders).toStringAsFixed(2) : 0.00}', Icons.analytics_rounded, Colors.amber),
+                    _buildInsightItem('Conversion Status', 'Good', Icons.check_circle_rounded, Colors.green),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

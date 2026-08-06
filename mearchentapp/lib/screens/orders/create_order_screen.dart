@@ -4,6 +4,7 @@ import '../../services/api_service.dart';
 import '../../models/product_model.dart';
 import 'invoice_screen.dart';
 import '../notifications/notification_screen.dart';
+import 'quick_scan_screen.dart';
 
 class CreateOrderScreen extends StatefulWidget {
   const CreateOrderScreen({super.key});
@@ -12,19 +13,39 @@ class CreateOrderScreen extends StatefulWidget {
   State<CreateOrderScreen> createState() => _CreateOrderScreenState();
 }
 
-class _CreateOrderScreenState extends State<CreateOrderScreen> with TickerProviderStateMixin {
-  late TabController _tabController;
+class _CreateOrderScreenState extends State<CreateOrderScreen> {
   List<dynamic> _categories = [{'id': 'all', 'name': 'All'}];
   List<Product> _allProducts = [];
   final Map<String, double> _cart = {}; // product_id -> quantity
   bool _isLoading = true;
   String _searchQuery = "";
+  String _selectedCategoryId = "all";
+  bool _isSidebarMinimized = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 1, vsync: this);
     _loadData();
+  }
+
+  Future<void> _enterQuickScanMode() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuickScanScreen(
+          allProducts: _allProducts,
+          initialCart: _cart,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      setState(() => _cart.clear());
+    } else if (result is Map<String, double>) {
+      setState(() => _cart.addAll(result));
+    } else {
+      _loadData(); // Refresh to sync any changes
+    }
   }
 
   Future<void> _loadData() async {
@@ -33,13 +54,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> with TickerProvid
       final List<Product> prods = (await ApiService.getProducts()).map((e) => Product.fromJson(e)).toList();
       
       final newCategories = [{'id': 'all', 'name': 'All'}, ...cats];
-      final newController = TabController(length: newCategories.length, vsync: this);
 
       setState(() {
         _categories = newCategories;
         _allProducts = prods;
-        _tabController.dispose();
-        _tabController = newController;
         _isLoading = false;
       });
       debugPrint("Loaded ${_categories.length} categories and ${_allProducts.length} products");
@@ -54,7 +72,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> with TickerProvid
 
   @override
   void dispose() {
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -133,6 +150,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> with TickerProvid
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(_isSidebarMinimized ? Icons.menu : Icons.menu_open),
+          onPressed: () => setState(() => _isSidebarMinimized = !_isSidebarMinimized),
+          tooltip: _isSidebarMinimized ? 'Expand Sidebar' : 'Minimize Sidebar',
+        ),
         title: const Text('Create Order 🛒'),
         actions: [
           IconButton(
@@ -141,44 +163,102 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> with TickerProvid
           ),
         ],
         bottom: _isLoading ? null : PreferredSize(
-          preferredSize: const Size.fromHeight(110),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: TextField(
-                  onChanged: (value) {
-                    _searchQuery = value;
-                    _applyFilters();
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Search products...',
-                    prefixIcon: const Icon(Icons.search),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: TextField(
+              onChanged: (value) {
+                _searchQuery = value;
+                _applyFilters();
+              },
+              decoration: InputDecoration(
+                hintText: 'Search products...',
+                prefixIcon: const Icon(Icons.search),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: Colors.white,
               ),
-              TabBar(
-                key: ValueKey('tabbar_${_categories.length}'),
-                controller: _tabController,
-                isScrollable: true,
-                indicatorColor: AppTheme.primaryColor,
-                tabs: _categories.map((c) => Tab(text: c['name'])).toList(),
-              ),
-            ],
+            ),
           ),
         ),
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
-        : TabBarView(
-        key: ValueKey('tabview_${_categories.length}'),
-        controller: _tabController,
-        children: _categories.map((c) => _buildProductGrid(c['id'].toString())).toList(),
+        : Row(
+            children: [
+              _buildSidebar(),
+              const VerticalDivider(width: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+              Expanded(
+                child: _buildProductGrid(_selectedCategoryId),
+              ),
+            ],
+          ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _enterQuickScanMode,
+        backgroundColor: AppTheme.primaryColor,
+        child: const Icon(Icons.camera_alt_rounded),
       ),
       bottomNavigationBar: _cart.isEmpty ? null : _buildCartSummary(),
+    );
+  }
+
+  Widget _buildSidebar() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      width: _isSidebarMinimized ? 60 : 100,
+      color: Colors.white,
+      child: ListView.builder(
+        itemCount: _categories.length,
+        itemBuilder: (context, index) {
+          final cat = _categories[index];
+          final isSelected = _selectedCategoryId == cat['id'].toString();
+          return InkWell(
+            onTap: () => setState(() => _selectedCategoryId = cat['id'].toString()),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                vertical: _isSidebarMinimized ? 16 : 20,
+                horizontal: 4,
+              ),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+                    width: 4,
+                  ),
+                ),
+                color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.05) : Colors.transparent,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isSelected ? Icons.folder_open : Icons.folder_outlined,
+                    color: isSelected ? AppTheme.primaryColor : Colors.black54,
+                    size: _isSidebarMinimized ? 24 : 20,
+                  ),
+                  if (!_isSidebarMinimized) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      cat['name'],
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? AppTheme.primaryColor : Colors.black54,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 

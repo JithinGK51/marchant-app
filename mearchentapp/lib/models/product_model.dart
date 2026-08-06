@@ -8,6 +8,7 @@ class Product {
   final double sellingPrice;
   final double lowStockThreshold;
   final String? categoryName;
+  final String? barcode;
 
   Product({
     required this.id,
@@ -19,6 +20,7 @@ class Product {
     required this.sellingPrice,
     required this.lowStockThreshold,
     this.categoryName,
+    this.barcode,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class Product {
       sellingPrice: (json['selling_price'] as num).toDouble(),
       lowStockThreshold: (json['low_stock_threshold'] as num).toDouble(),
       categoryName: json['categories'] != null ? json['categories']['name'] : null,
+      barcode: json['barcode'],
     );
   }
 }
